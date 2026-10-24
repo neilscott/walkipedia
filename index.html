@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Walkipedia</title>
+  <meta name="description" content="Every Wikipedia article within half an hour on foot, pinned on a map. Search for a place or share your location.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Neil Scott">
+  <meta property="og:title" content="Walkipedia">
+  <meta property="og:description" content="Every Wikipedia article within half an hour on foot, pinned on a map.">
+  <meta property="og:url" content="https://www.neil-scott.com/walkipedia/">
+  <meta property="og:image" content="https://www.neil-scott.com/walkipedia/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="‘Walkipedia: everything Wikipedia knows within half an hour on foot’ beside a map of central Glasgow covered in pins for nearby Wikipedia articles.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Walkipedia">
+  <meta name="twitter:description" content="Every Wikipedia article within half an hour on foot, pinned on a map.">
+  <meta name="twitter:image" content="https://www.neil-scott.com/walkipedia/og-image.jpg">
+  <meta name="twitter:image:alt" content="‘Walkipedia: everything Wikipedia knows within half an hour on foot’ beside a map of central Glasgow covered in pins for nearby Wikipedia articles.">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
+  <link rel="stylesheet" href="css/style.css?v=90f1972c">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23fff' stroke='%23202122' stroke-width='3'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='32' text-anchor='middle' fill='%23202122'%3EW%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+  <header class="masthead">
+    <a class="brand" href="./" aria-label="Walkipedia, start again">
+      <span class="globe" aria-hidden="true"><span>W</span></span>
+      <span class="brand-text">
+        <span class="brand-name">Walkipedia</span>
+        <span class="brand-tag">An encyclopedia you can walk round</span>
+      </span>
+    </a>
+
+    <form class="place-form" id="place-form" role="search">
+      <label class="visually-hidden" for="place">Place name or postcode</label>
+      <input id="place" type="search" placeholder="Place name or postcode" autocomplete="off" enterkeyhint="go">
+      <button class="btn btn-primary" type="submit">Go</button>
+      <button class="btn" type="button" id="near-me">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        Near me
+      </button>
+      <label class="visually-hidden" for="lang">Wikipedia language</label>
+      <select class="lang-select" id="lang" title="Which Wikipedia to search"></select>
+    </form>
+  </header>
+
+  <main class="layout">
+    <section class="map-panel" aria-label="Map of nearby articles">
+      <div id="map"></div>
+      <div class="map-loader" id="map-loader" role="status" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="loader-text">Mapping the articles…</span>
+      </div>
+      <button class="btn btn-float" id="search-here" type="button" hidden>Search this area</button>
+    </section>
+
+    <section class="list-panel" aria-label="Nearby articles">
+      <div class="intro" id="intro">
+        <h1>Everything Wikipedia knows within half an hour on foot</h1>
+        <p>Type in somewhere — a town, a street, a landmark, a postcode — or let your browser say where you are. Every Wikipedia article with coordinates inside a 30-minute walk goes on the map.</p>
+        <p class="small">Your location is never saved, and shared links only carry places you’ve typed.</p>
+        <p class="try">Try <a href="?q=Glasgow">Glasgow</a>, <a href="?q=Bath">Bath</a>, <a href="?q=Whitby">Whitby</a> or <a href="?q=EH1%201YZ">EH1 1YZ</a>.</p>
+      </div>
+
+      <div class="choices" id="choices" hidden></div>
+
+      <div class="results" id="results" hidden>
+        <div class="controls">
+          <h2 id="results-title">Results</h2>
+          <p class="also" id="also" hidden></p>
+          <p class="result-count" id="result-count" aria-live="polite"></p>
+          <div class="filters" id="filters" role="group" aria-label="Filter by kind"></div>
+          <div class="list-tools">
+            <label class="filter-text">
+              <span class="visually-hidden">Filter these articles</span>
+              <input id="filter-text" type="search" placeholder="Filter these articles…" autocomplete="off">
+            </label>
+            <div class="sort" role="group" aria-label="Sort">
+              <button type="button" data-sort="distance" aria-pressed="true">Nearest</button>
+              <button type="button" data-sort="title" aria-pressed="false">A–Z</button>
+            </div>
+          </div>
+        </div>
+        <ol class="article-list" id="article-list"></ol>
+      </div>
+
+      <p class="status" id="status" role="status"></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>
+      Articles and summaries from <a id="wiki-credit" href="https://en.wikipedia.org/">Wikipedia</a>, available under
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>; only articles with coordinates appear.
+      Places found with <a href="https://nominatim.org/">Nominatim</a> and <a href="https://postcodes.io/">postcodes.io</a>.
+      Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+      Inspired by <a href="https://edjefferson.com/localwiki/">Local Wikipedia</a> by Ed Jefferson.
+    </p>
+
+    <form class="newsletter" data-newsletter action="https://crop.photography/subscribe" method="get" target="_blank">
+      <label for="newsletter-email">Made by <a href="https://www.neil-scott.com/">Neil Scott</a>. Occasional newsletter about things like this:</label>
+      <span class="newsletter-row" data-newsletter-fields>
+        <input id="newsletter-email" type="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+        <button class="btn" type="submit">Subscribe</button>
+      </span>
+      <input type="hidden" name="utm_source" value="walkipedia">
+      <span class="newsletter-note" data-newsletter-note></span>
+    </form>
+  </footer>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+  <script src="/js/newsletter.js" defer></script>
+  <script src="js/app.js?v=883b40c0"></script>
+</body>
+</html>
