@@ -360,7 +360,7 @@ a:hover { text-decoration: underline; }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }
   /* short enough to leave page showing below, so a swipe can scroll past the map */
-  .map-panel { position: relative; height: 50vh; height: 50svh; min-height: 300px; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .map-panel { position: relative; height: 55vh; height: 55svh; min-height: 330px; border-right: 0; border-bottom: 1px solid var(--rule); }
   .controls { position: static; }
 }
 @media (max-width: 560px) {
@@ -369,7 +369,7 @@ a:hover { text-decoration: underline; }
   .place-form input { flex-basis: 100%; }
   .place-form .btn { flex: 1; justify-content: center; }
   .place-form .lang-select { flex: 0 1 auto; min-width: 0; }
-  .map-panel { height: 42vh; height: 42svh; min-height: 260px; }
+  .map-panel { height: 46vh; height: 46svh; min-height: 286px; }
   .list-panel { padding: 0 16px 24px; }
   .list-tools { flex-wrap: wrap; }
   .filter-text { flex-basis: 100%; }
