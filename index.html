@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.css">
-  <link rel="stylesheet" href="css/style.css?v=8e1a3fdc">
+  <link rel="stylesheet" href="css/style.css?v=080786df">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23fff' stroke='%23202122' stroke-width='3'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='32' text-anchor='middle' fill='%23202122'%3EW%3C/text%3E%3C/svg%3E">
 </head>
 <body>
@@ -63,7 +63,10 @@
         <span class="spinner" aria-hidden="true"></span>
         <span id="loader-text">Mapping the articles…</span>
       </div>
-      <button class="btn btn-float" id="search-here" type="button" hidden>Search this area</button>
+      <button class="btn btn-float" id="search-here" type="button" hidden>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="5"/><path d="m11 11 4 4"/></svg>
+        Search this area
+      </button>
     </section>
 
     <section class="list-panel" aria-label="Nearby articles">
@@ -125,6 +128,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.min.js"></script>
   <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
   <script src="/js/newsletter.js" defer></script>
-  <script src="js/app.js?v=559b8cfe"></script>
+  <script src="js/app.js?v=ca3c4dc7"></script>
 </body>
 </html>

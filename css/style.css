@@ -287,6 +287,8 @@ a:hover { text-decoration: underline; }
 .kind-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--kind); flex: none; }
 
 .empty { padding: 24px 4px; color: var(--ink-soft); }
+.is-empty .filters, .is-empty .list-tools { display: none; }
+.empty strong { display: block; margin-bottom: 4px; color: var(--ink); font-weight: 600; }
 
 /* messages sit in the sticky masthead, so they're seen wherever the page is scrolled */
 .notice {

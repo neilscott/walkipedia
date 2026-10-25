@@ -309,7 +309,6 @@
       refresh();
       setLoading(null);
 
-      if (!articles.length) setStatus("Nothing on Wikipedia within 10 km of here. Try somewhere else.");
       fetchDetails(run);
     } catch (e) {
       if (run !== state.run) return;
@@ -322,15 +321,21 @@
   function setTitle(label, detail, radius, n) {
     const where = label === "you" ? "you" : label;
     const wide = radius > WALK_RADIUS || n < MIN_RESULTS;
-    $("#results-title").textContent = wide
-      ? `The ${n} nearest to ${where}`
+    $("#results-title").textContent = !n ? `Nothing near ${where}`
+      : wide ? `The ${n} nearest to ${where}`
       : `Within a half-hour walk of ${where}`;
     $("#results-title").title = detail || "";
-    state.titleNote = wide
+    state.titleNote = !n ? ""
+      : wide
       ? `Not much is mapped on Wikipedia close by, so these reach out to ${walkText(radius).split(" · ").pop()}.`
       : n >= MAX_RESULTS ? `There’s a lot round here — showing the closest ${MAX_RESULTS}.` : "";
     document.title = `${where === "you" ? "Near you" : where} · Walkipedia`;
   }
+
+  const NOTHING_NEARBY = `
+    <strong>Wikipedia has nothing within 10 km of here.</strong>
+    That’s a good two hours on foot, so wherever this is, it’s properly off the beaten track: pack a backpack, some water and a paper map.
+    Or drag the map towards somewhere busier and tap <em>Search this area</em>.`;
 
   // ---------- markers ----------
   const markerIcon = a => L.divIcon({
@@ -442,9 +447,10 @@
           ${a.description ? `<p class="desc">${esc(a.description)}</p>` : ""}
           <p class="walk"><span class="kind-dot"></span>${esc(walkText(a.dist))}</p>
         </div>
-      </li>`).join("") || `<li class="empty">${all.length ? "Nothing here matches." : ""}</li>`;
+      </li>`).join("") || `<li class="empty">${all.length ? "Nothing here matches." : NOTHING_NEARBY}</li>`;
 
     const n = visible.length;
+    $("#results").classList.toggle("is-empty", !all.length);
     $("#result-count").textContent = [
       n === all.length ? `${n} article${n === 1 ? "" : "s"}` : `${n} of ${all.length} articles`,
       state.titleNote,
@@ -642,15 +648,18 @@
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
   });
 
-  // Offer a fresh search once the map has been moved well away from the last one.
+  // Offer a fresh search once the map has been moved off the last one: about a
+  // 15-minute walk, so a wide or empty search doesn't need a long drag first.
   const searchHere = $("#search-here");
   map.on("moveend", () => {
     if (!state.centre || !loader.hidden) return;
-    searchHere.hidden = map.getCenter().distanceTo(state.centre) < state.radius * 0.6;
+    searchHere.hidden = map.getCenter().distanceTo(state.centre) < Math.min(state.radius, WALK_RADIUS) / 2;
   });
   searchHere.addEventListener("click", async () => {
     const c = map.getCenter();
     $("#place").value = "";
+    searchHere.hidden = true;
+    setLoading("Mapping the articles…");   // naming the spot can take a moment
     const name = await placeName(c.lat, c.lng);
     search({ lat: c.lat, lon: c.lng, label: name || "here", shareQuery: "" });
   });
