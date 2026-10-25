@@ -77,23 +77,24 @@
   // OpenFreeMap's vector styles are drawn from OSM data but calmer than the standard OSM
   // tiles, and stay sharp at any zoom or screen density. No API key needed (CARTO now wants one).
   // MapLibre draws them inside Leaflet, so clusters and popups work as before.
-  // The classic OSM raster look is kept as an option, and as a fallback without WebGL.
+  // The classic OSM raster tiles are the fallback without WebGL.
   const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const OFM = `<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> ${OSM}`;
-  const classic = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: OSM, className: "osm-classic" });
   const hasWebGL = (() => {
     try { return !!document.createElement("canvas").getContext("webgl"); } catch (_) { return false; }
   })();
-  const openFreeMap = style => L.maplibreGL({ style: `https://tiles.openfreemap.org/styles/${style}`, attribution: OFM });
-  const BASEMAPS = hasWebGL && L.maplibreGL
-    ? { Streets: openFreeMap("liberty"), Light: openFreeMap("positron"), Bright: openFreeMap("bright"), Classic: classic }
-    : { Classic: classic };
-  // Remember each viewer's pick; storage can be unavailable (private windows), so guard it.
-  let basemap = Object.keys(BASEMAPS)[0];
-  try { if (BASEMAPS[localStorage.getItem("walkipedia-basemap")]) basemap = localStorage.getItem("walkipedia-basemap"); } catch (_) {}
-  BASEMAPS[basemap].addTo(map);
-  if (Object.keys(BASEMAPS).length > 1) L.control.layers(BASEMAPS, null, { position: "topright" }).addTo(map);
-  map.on("baselayerchange", e => { try { localStorage.setItem("walkipedia-basemap", e.name); } catch (_) {} });
+  (hasWebGL && L.maplibreGL
+    ? L.maplibreGL({ style: "https://tiles.openfreemap.org/styles/liberty", attribution: OFM })
+    : L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: OSM, className: "osm-classic" })
+  ).addTo(map);
+
+  // The masthead is sticky and its height changes as it wraps, so publish it for the CSS
+  // that pins the map and list controls beneath it.
+  const masthead = $(".masthead");
+  new ResizeObserver(() => {
+    document.documentElement.style.setProperty("--mast-h", `${masthead.offsetHeight}px`);
+    map.invalidateSize();
+  }).observe(masthead);
 
   const cluster = L.markerClusterGroup({
     showCoverageOnHover: false,
@@ -126,11 +127,13 @@
   const extracts = new Map();
 
   const loader = $("#map-loader");
-  const statusEl = $("#status");
+  const notice = $("#notice");
   const setStatus = (msg, isError = false) => {
-    statusEl.textContent = msg || "";
-    statusEl.classList.toggle("is-error", isError);
+    $("#status").textContent = msg || "";
+    notice.classList.toggle("is-error", isError);
+    notice.hidden = !msg;
   };
+  $("#notice-close").addEventListener("click", () => setStatus(""));
   const setLoading = msg => {
     loader.hidden = !msg;
     if (msg) $("#loader-text").textContent = msg;
@@ -601,10 +604,32 @@
     searchFor($("#place").value);
   });
 
+  // Apps' built-in browsers (Instagram, Facebook, TikTok…) mostly block location, and some
+  // never answer the request at all, so name the problem and the way round it.
+  const inAppBrowser = (() => {
+    const ua = navigator.userAgent;
+    const apps = { Instagram: /Instagram/, Facebook: /FBAN|FBAV|FB_IAB/, TikTok: /TikTok|musical_ly|BytedanceWebview/,
+      Snapchat: /Snapchat/, LinkedIn: /LinkedInApp/, Pinterest: /Pinterest/, Threads: /Barcelona/, X: /Twitter/ };
+    return Object.keys(apps).find(name => apps[name].test(ua)) || null;
+  })();
+  const locationFailed = err => {
+    setLoading(null);
+    let msg = "Couldn’t get your location. You can type a place instead.";
+    if (inAppBrowser) msg = `${inAppBrowser}’s built-in browser won’t share your location. Open this page in Safari or Chrome (try the ••• menu), or type a place instead.`;
+    else if (err && err.code === 1) msg = "Location access is turned off for this site. Allow it in your browser’s settings, or type a place instead.";
+    setStatus(msg, true);
+  };
+
   $("#near-me").addEventListener("click", () => {
-    if (!navigator.geolocation) { setStatus("This browser can’t share its location. Type a place instead.", true); return; }
+    setStatus("");
+    if (!navigator.geolocation) { locationFailed(); return; }
     setLoading("Finding where you are…");
+    // Some in-app browsers ignore the timeout below and never call back, so keep our own.
+    let settled = false;
+    const watchdog = setTimeout(() => { if (!settled) { settled = true; locationFailed(); } }, 15000);
+    const settle = () => { if (settled) return false; settled = true; clearTimeout(watchdog); return true; };
     navigator.geolocation.getCurrentPosition(async pos => {
+      if (!settle()) return;
       const { latitude: lat, longitude: lon } = pos.coords;
       $("#place").value = "";
       // The URL never carries your coordinates, so a shared link can't give you away.
@@ -612,9 +637,8 @@
       const run = state.run;
       const name = await placeName(lat, lon);
       if (name && run === state.run) $("#results-title").title = `Near ${name}`;
-    }, () => {
-      setLoading(null);
-      setStatus("Couldn’t get your location. You can type a place instead.", true);
+    }, err => {
+      if (settle()) locationFailed(err);
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
   });
 
