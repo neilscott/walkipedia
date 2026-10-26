@@ -648,12 +648,15 @@
     }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
   });
 
-  // Offer a fresh search once the map has been moved off the last one: about a
-  // 15-minute walk, so a wide or empty search doesn't need a long drag first.
+  // Offer a search once the map is zoomed in to roughly city scale, either before any
+  // search or once the map has been moved off the last one: about a 15-minute walk, so
+  // a wide or empty search doesn't need a long drag first.
+  const SEARCH_HERE_ZOOM = 11;
   const searchHere = $("#search-here");
   map.on("moveend", () => {
-    if (!state.centre || !loader.hidden) return;
-    searchHere.hidden = map.getCenter().distanceTo(state.centre) < Math.min(state.radius, WALK_RADIUS) / 2;
+    if (!loader.hidden) return;
+    const moved = !state.centre || map.getCenter().distanceTo(state.centre) >= Math.min(state.radius, WALK_RADIUS) / 2;
+    searchHere.hidden = map.getZoom() < SEARCH_HERE_ZOOM || !moved;
   });
   searchHere.addEventListener("click", async () => {
     const c = map.getCenter();
