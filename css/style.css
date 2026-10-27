@@ -103,7 +103,7 @@ a:hover { text-decoration: underline; }
 .globe { flex: none; width: 58px; height: 42px; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-name { display: block; align-self: flex-start; height: 33px; width: auto; }
-.brand-tag { font-family: var(--font-serif); font-size: .82rem; font-style: italic; color: var(--ink-soft); margin-top: 2px; }
+.brand-tag { font-size: .82rem; color: var(--ink-soft); margin-top: 2px; }
 
 .place-form { flex: 1 1 420px; display: flex; gap: 8px; max-width: 680px; }
 .place-form input {
