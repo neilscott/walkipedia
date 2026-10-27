@@ -1,6 +1,6 @@
 /* ---------------------------------------------------------------
-   Walkipedia — Wikipedia's look: white paper, serif headings,
-   hairline rules and that particular link blue.
+   Walkipedia — Wikipedia's look: white paper, hairline rules and
+   that particular link blue, with rounded Nunito headings.
 ---------------------------------------------------------------- */
 :root {
   --paper: #ffffff;
@@ -15,10 +15,23 @@
   --focus: #36c;
 
   --font-serif: "Linux Libertine", "Georgia", "Times", serif;
+  --font-display: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
 
   --radius: 4px;
   --mast-h: 75px;   /* the sticky masthead's height; app.js keeps it exact */
+}
+
+/* Nunito, self-hosted (SIL OFL, see fonts/OFL.txt) */
+@font-face {
+  font-family: "Nunito"; font-style: normal; font-weight: 700 800; font-display: swap;
+  src: url("../fonts/nunito-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Nunito"; font-style: normal; font-weight: 700 800; font-display: swap;
+  src: url("../fonts/nunito-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -33,7 +46,7 @@ body {
   line-height: 1.5;
 }
 
-h1, h2, .brand-name { font-family: var(--font-serif); font-weight: 400; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 800; }
 
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -89,7 +102,7 @@ a:hover { text-decoration: underline; }
 .brand:hover { text-decoration: none; }
 .globe { flex: none; width: 58px; height: 42px; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
-.brand-name { font-size: 1.6rem; letter-spacing: .01em; }
+.brand-name { display: block; align-self: flex-start; height: 33px; width: auto; }
 .brand-tag { font-family: var(--font-serif); font-size: .82rem; font-style: italic; color: var(--ink-soft); margin-top: 2px; }
 
 .place-form { flex: 1 1 420px; display: flex; gap: 8px; max-width: 680px; }
@@ -265,7 +278,7 @@ a:hover { text-decoration: underline; }
 }
 .article-body { min-width: 0; }
 .article h3 {
-  margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.3;
+  margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.3;
   overflow-wrap: anywhere;
 }
 .article h3 a { color: var(--link); }
@@ -330,7 +343,7 @@ a:hover { text-decoration: underline; }
 .popup img { display: block; width: 100%; height: 160px; object-fit: cover; border-radius: 4px 4px 0 0; background: var(--rule-soft); }
 .popup-body { padding: 12px 14px 14px; }
 .popup .kind-tag { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--kind); font-weight: 600; }
-.popup h3 { margin: 2px 0 2px; font: 400 1.25rem/1.2 var(--font-serif); padding-right: 14px; }
+.popup h3 { margin: 2px 0 2px; font: 800 1.25rem/1.2 var(--font-display); padding-right: 14px; }
 .popup .desc { margin: 0 0 8px; font-size: .82rem; color: var(--ink-soft); }
 .popup .extract { margin: 0 0 10px; font-size: .86rem; line-height: 1.45; color: var(--ink); }
 .popup .extract.is-loading { color: var(--ink-soft); font-style: italic; }
@@ -389,7 +402,7 @@ a:hover { text-decoration: underline; }
   .place-form { display: contents; }
   .brand { grid-column: 1 / 3; gap: 10px; }
   .globe { width: 44px; height: 32px; }
-  .brand-name { font-size: 1.3rem; }
+  .brand-name { height: 27px; }
   .brand-tag { display: none; }
   .place-form .lang-select { grid-row: 1; grid-column: 3; justify-self: end; min-width: 0; padding-top: 6px; padding-bottom: 6px; }
   .place-form input { grid-row: 2; grid-column: 1; }
