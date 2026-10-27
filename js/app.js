@@ -667,6 +667,36 @@
     search({ lat: c.lat, lon: c.lng, label: name || "here", shareQuery: "" });
   });
 
+  // ---------- random place ----------
+  // Drop in beside a random geotagged article. Most articles have no coordinates, so ask
+  // for a batch and keep the first that's on Earth (some sit on the Moon or Mars).
+  async function randomPlace() {
+    for (let tries = 0; tries < 5; tries++) {
+      const d = await wiki({
+        action: "query", generator: "random", grnnamespace: "0", grnlimit: "50",
+        prop: "coordinates", coprimary: "primary", colimit: "max",
+      });
+      const hit = (d.query?.pages || []).find(p => p.coordinates?.[0]?.globe === "earth");
+      if (hit) return { lat: hit.coordinates[0].lat, lon: hit.coordinates[0].lon, label: hit.title };
+    }
+    return null;
+  }
+
+  $("#random-place").addEventListener("click", async () => {
+    setStatus("");
+    setLoading("Picking somewhere at random…");
+    try {
+      const place = await randomPlace();
+      if (!place) throw new Error("no geotagged article found");
+      $("#place").value = "";
+      search({ ...place, shareQuery: "" });
+    } catch (e) {
+      console.error(e);
+      setLoading(null);
+      setStatus("Couldn’t pick a random place just now. Please try again.", true);
+    }
+  });
+
   // ---------- language ----------
   const langEl = $("#lang");
   langEl.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${esc(name)}</option>`).join("");

@@ -396,7 +396,7 @@ a:hover { text-decoration: underline; }
 @media (max-width: 560px) {
   /* two compact rows, as the masthead stays on screen: brand and language, then the search */
   .masthead {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 10px 8px; padding: 10px 16px;
   }
   .place-form { display: contents; }
@@ -404,9 +404,10 @@ a:hover { text-decoration: underline; }
   .globe { width: 44px; height: 32px; }
   .brand-name { height: 27px; }
   .brand-tag { display: none; }
-  .place-form .lang-select { grid-row: 1; grid-column: 3; justify-self: end; min-width: 0; padding-top: 6px; padding-bottom: 6px; }
+  .place-form .lang-select { grid-row: 1; grid-column: 3 / 5; justify-self: end; min-width: 0; padding-top: 6px; padding-bottom: 6px; }
   .place-form input { grid-row: 2; grid-column: 1; }
   .place-form .btn { justify-content: center; }
+  #random-place .btn-label { display: none; }
   .notice { grid-column: 1 / -1; }
   .map-panel { height: 56vh; height: 56svh; min-height: 330px; }
   .list-panel { padding: 0 16px 24px; }
