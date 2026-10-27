@@ -7,7 +7,7 @@
 set -e
 cd "$(dirname "$0")"
 
-for f in css/style.css js/app.js; do
+for f in css/style.css js/app.js wordmark.svg icon.svg; do
   v=$(shasum "$f" | cut -c1-8)
   F="$f" V="$v" perl -pi -e 's/(["\x27])\Q$ENV{F}\E(?:\?v=[0-9a-f]*)?\1/$1$ENV{F}?v=$ENV{V}$1/g' index.html
   echo "$f?v=$v"
