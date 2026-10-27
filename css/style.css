@@ -105,7 +105,7 @@ a:hover { text-decoration: underline; }
 .brand-name { display: block; align-self: flex-start; height: 33px; width: auto; }
 .brand-tag { font-size: .82rem; color: var(--ink-soft); margin-top: 2px; }
 
-.place-form { flex: 1 1 420px; display: flex; gap: 8px; max-width: 680px; }
+.place-form { flex: 1 1 540px; display: flex; gap: 8px; max-width: 800px; }
 .place-form input {
   flex: 1; min-width: 0;
   font: inherit; font-size: 1rem;
