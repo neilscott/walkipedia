@@ -354,11 +354,12 @@ a:hover { text-decoration: underline; }
 /* ---------- footer ---------- */
 .footer { padding: 16px clamp(16px, 3vw, 32px) 28px; font-size: .8rem; color: var(--ink-soft); max-width: 110ch; }
 
-.newsletter {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+.support {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px;
   margin-top: 12px; padding-top: 12px;
   border-top: 1px solid var(--rule-soft);
 }
+.newsletter { display: flex; flex-wrap: wrap; align-items: center; align-content: start; gap: 6px 10px; }
 .newsletter-row { display: flex; gap: 6px; }
 .newsletter input[type="email"] {
   width: 15rem; min-width: 0;
@@ -372,6 +373,17 @@ a:hover { text-decoration: underline; }
 @media (max-width: 560px) {
   .newsletter-row { flex-basis: 100%; }
   .newsletter input[type="email"] { flex: 1; width: auto; }
+}
+
+.tip {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  margin: 0; padding-left: 32px;
+  border-left: 1px solid var(--rule-soft);
+}
+.tip .btn { text-decoration: none; }
+@media (max-width: 560px) {
+  .support { grid-template-columns: 1fr; }
+  .tip { padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--rule-soft); }
 }
 
 /* ---------- small screens ---------- */
