@@ -951,7 +951,8 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
         <p class="small">Google Maps takes up to ${STOPS_PER_LINK} stops per link (or 5 in a phone’s browser without the Google Maps app), so longer walks come in parts.
           The GPX file has the whole walk, for apps like Komoot, OsmAnd or Organic Maps.</p>`
       : `<p class="empty">Nothing in your walk yet. Tap the star on any article to add it.</p>`}
-      <p class="tour-foot"><button type="button" class="link-button" data-back>← Back</button></p>`;
+      <p class="tour-foot"><button type="button" class="link-button" data-back>← Back</button>${
+        order.length ? ` · <button type="button" class="link-button" data-clear>Clear the walk</button>` : ""}</p>`;
   }
 
   function openTour() {
@@ -1001,6 +1002,15 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
     if (!btn) return;
     if ("back" in btn.dataset) closeTour();
     else if ("gpx" in btn.dataset) downloadGpx(tourStops);
+    else if ("clear" in btn.dataset) {
+      // asks for a second tap, so a stray one doesn't lose the walk
+      if (!btn.dataset.clear) { btn.dataset.clear = "sure"; btn.textContent = "Tap again to clear the walk"; return; }
+      saved = [];
+      try { localStorage.removeItem("walkipedia-saved"); } catch (_) {}
+      state.articles.forEach(a => markers.get(a.id)?.setIcon(markerIcon(a)));
+      refresh();
+      renderTour(false);
+    }
     else if ("first" in btn.dataset) {
       saved.forEach(s => delete s.first);
       tourStops[Number(btn.dataset.first)].first = true;
