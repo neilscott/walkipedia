@@ -261,6 +261,9 @@ p a { text-decoration: underline; text-underline-offset: 2px; }
 .tour-list { list-style: none; margin: 12px 0 16px; padding: 0; }
 .tour-list li { display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid var(--rule-soft); }
 .tour-list a { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.tour-here { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .9rem; cursor: pointer; }
+.tour-here input { margin: 0; accent-color: var(--accent); }
+.choice-n.is-you { width: 18px; height: 18px; margin: 0 4px; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
 .tour-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .tour .small { margin: 12px 0 0; font-size: .85rem; color: var(--ink-soft); }
 .tour-foot { margin: 16px 0 0; }

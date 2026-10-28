@@ -810,6 +810,8 @@
   const tourLayer = L.layerGroup().addTo(map);
   let tourStops = [];
   let tourFrom = null;    // the view and panels to go back to
+  let tourHere = null;    // where you are, if you've asked to start there. Never stored.
+  let tourLoop = false;   // and come back there at the end
 
   const storeSaved = () => { try { localStorage.setItem("walkipedia-saved", JSON.stringify(saved)); } catch (_) {} };
   const updateWalkBtn = () => {
@@ -839,17 +841,18 @@
     if (a) toggleSaved(a);
   });
 
-  // Go to the nearest stop next, trying each stop as the first and keeping the shortest walk.
-  function walkOrder(stops) {
+  // Go to the nearest stop next. Starting from where you are if that's known, otherwise trying
+  // each stop as the first and keeping the shortest walk.
+  function walkOrder(stops, from) {
     let best = stops, bestLength = 0;
-    stops.forEach((first, n) => {
-      const order = [first], left = stops.filter(s => s !== first);
-      let length = 0;
+    (from ? [from] : stops).forEach((first, n) => {
+      const order = from ? [] : [first], left = stops.filter(s => s !== first);
+      let here = L.latLng(first), length = 0;
       while (left.length) {
-        const here = L.latLng(order[order.length - 1]);
         let i = 0;
         left.forEach((s, j) => { if (here.distanceTo(s) < here.distanceTo(left[i])) i = j; });
         length += here.distanceTo(left[i]);
+        here = L.latLng(left[i]);
         order.push(...left.splice(i, 1));
       }
       if (!n || length < bestLength) { best = order; bestLength = length; }
@@ -858,13 +861,23 @@
   }
 
   // One link per leg of up to STOPS_PER_LINK stops, each leg starting where the last one ended.
-  // A single stop gets directions from wherever you are.
-  function mapsLinks(stops) {
+  // A walk from where you are, or a single stop, leaves the start out of the first link, so Google
+  // Maps starts from your phone's location. Only a walk that finishes back there puts where you
+  // are in a link, as its destination, since Google Maps can't fill that in itself.
+  function mapsLinks(stops, fromHere) {
     const at = s => `${s.lat},${s.lon}`;
     const link = params => `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", travelmode: "walking", ...params })}`;
-    if (stops.length === 1) return [{ first: 1, last: 1, url: link({ destination: at(stops[0]) }) }];
     const legs = [];
-    for (let i = 0; i < stops.length - 1; i += STOPS_PER_LINK - 1) {
+    let i = 0;
+    if (fromHere || stops.length === 1) {
+      const leg = stops.slice(0, STOPS_PER_LINK - 1);
+      legs.push({
+        first: 1, last: leg.length,
+        url: link({ destination: at(leg[leg.length - 1]), ...(leg.length > 1 && { waypoints: leg.slice(0, -1).map(at).join("|") }) }),
+      });
+      i = leg.length - 1;
+    }
+    for (; i < stops.length - 1; i += STOPS_PER_LINK - 1) {
       const leg = stops.slice(i, i + STOPS_PER_LINK);
       legs.push({
         first: i + 1, last: i + leg.length,
@@ -893,32 +906,49 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
   }
 
   function renderTour(fit) {
-    const { order, length } = walkOrder(saved);
+    let { order, length } = walkOrder(saved, tourHere);
     tourStops = order;
+    const loop = tourHere && tourLoop && order.length;
+    // rounded to about 10 m: plenty to walk back to
+    const home = loop && { lat: +tourHere.lat.toFixed(4), lon: +tourHere.lon.toFixed(4) };
+    if (loop) length += L.latLng(order[order.length - 1]).distanceTo(home);
     tourLayer.clearLayers();
     if (order.length) {
-      L.polyline(order.map(s => [s.lat, s.lon]), { color: "#36c", weight: 3, dashArray: "6 8", interactive: false }).addTo(tourLayer);
+      const path = [...(tourHere ? [tourHere] : []), ...order, ...(loop ? [tourHere] : [])].map(s => [s.lat, s.lon]);
+      L.polyline(path, { color: "#36c", weight: 3, dashArray: "6 8", interactive: false }).addTo(tourLayer);
+      if (tourHere) L.marker([tourHere.lat, tourHere.lon], {
+        icon: L.divIcon({ html: '<div class="you-marker"></div>', className: "", iconSize: [18, 18] }),
+        title: "Where you are", keyboard: false,
+      }).addTo(tourLayer);
       order.forEach((s, i) => L.marker([s.lat, s.lon], {
         icon: L.divIcon({ html: `<div class="choice-pin">${i + 1}</div>`, className: "", iconSize: [28, 28] }),
         title: s.title,
       }).addTo(tourLayer));
-      if (fit) map.fitBounds(L.latLngBounds(order.map(s => [s.lat, s.lon])), { padding: [50, 50], maxZoom: 17 });
+      if (fit) map.fitBounds(L.latLngBounds(path), { padding: [50, 50], maxZoom: 17 });
     }
-    const links = mapsLinks(order);
+    const links = mapsLinks(loop ? [...order, home] : order, !!tourHere);
+    const legText = l => {
+      const last = Math.min(l.last, order.length);
+      return `${l.first === last ? `Stop ${last}` : `Stops ${l.first}–${last}`}${l.last > order.length ? " and back" : ""} in Google Maps`;
+    };
     tourEl.innerHTML = `
       <h2>Your walk</h2>
       ${order.length ? `
         <p class="result-count">${order.length} stop${order.length === 1 ? "" : "s"}${order.length > 1 ? ` · about ${walkText(length).split(" · ").pop()} as the crow flies` : ""}</p>
-        <ol class="tour-list">${order.map((s, i) => `
+        <label class="tour-here"><input type="checkbox" data-here${tourHere ? " checked" : ""}> Start from where I am</label>
+        ${tourHere ? `<label class="tour-here"><input type="checkbox" data-loop${tourLoop ? " checked" : ""}> Finish back here</label>` : ""}
+        <ol class="tour-list">${tourHere ? `
+          <li><span class="choice-n is-you" aria-hidden="true"></span>Where you are</li>` : ""}${order.map((s, i) => `
           <li>
             <span class="choice-n" aria-hidden="true">${i + 1}</span>
             <a href="${wikiUrl(s.title, s.lang)}" target="_blank" rel="noopener">${esc(s.title)}</a>
             <button type="button" class="tour-remove" data-unsave="${i}" aria-label="Remove ${esc(s.title)}">×</button>
-          </li>`).join("")}
+          </li>`).join("")}${loop ? `
+          <li><span class="choice-n is-you" aria-hidden="true"></span>Back where you started</li>` : ""}
         </ol>
         <div class="tour-actions">
           ${links.map(l => `<a class="btn btn-primary" href="${esc(l.url)}" target="_blank" rel="noopener">${
-            links.length > 1 ? `Stops ${l.first}–${l.last} in Google Maps` : "Open in Google Maps"}</a>`).join("")}
+            links.length > 1 ? legText(l) : "Open in Google Maps"}</a>`).join("")}
           <button type="button" class="btn" data-gpx>Download GPX</button>
         </div>
         <p class="small">Google Maps takes up to ${STOPS_PER_LINK} stops per link (or 5 in a phone’s browser without the Google Maps app), so longer walks come in parts.
@@ -949,7 +979,26 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
     updateWalkBtn();
   }
 
+  // Some in-app browsers never answer a location request, so give up after a while.
+  const locate = () => new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject(); return; }
+    setTimeout(reject, 15000);
+    navigator.geolocation.getCurrentPosition(p => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }), reject,
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+  });
+
   walkBtn.addEventListener("click", openTour);
+  tourEl.addEventListener("change", async e => {
+    if ("loop" in e.target.dataset) { tourLoop = e.target.checked; renderTour(true); return; }
+    if (!("here" in e.target.dataset)) return;
+    tourHere = null;
+    if (e.target.checked) {
+      e.target.disabled = true;
+      try { tourHere = await locate(); }
+      catch (_) { setStatus("Couldn’t get your location, so the walk starts at its first stop.", true); }
+    }
+    if (!tourEl.hidden) renderTour(true);
+  });
   tourEl.addEventListener("click", e => {
     const btn = e.target.closest("button");
     if (!btn) return;
