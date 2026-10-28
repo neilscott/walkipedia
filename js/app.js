@@ -363,12 +363,12 @@
     const where = label === "you" ? "you" : label;
     const wide = radius > WALK_RADIUS[walk] || n < MIN_RESULTS;
     $("#results-title").innerHTML = !n ? `Nothing near ${esc(where)}`
-      : wide ? `The ${n} nearest to ${esc(where)}`
+      : wide ? `Not much within a ${walkSelect()} walk of ${esc(where)}`
       : `Within a ${walkSelect()} walk of ${esc(where)}`;
     $("#results-title").title = detail || "";
     state.titleNote = !n ? ""
       : wide
-      ? `Not much is mapped on Wikipedia close by, so these reach out to ${walkText(radius).split(" · ").pop()}.`
+      ? `The nearest reach out to ${walkText(radius).split(" · ").pop()}.`
       : n >= MAX_RESULTS ? `There’s a lot round here — showing the closest ${MAX_RESULTS}.` : "";
     document.title = `${where === "you" ? "Near you" : where} · Walkipedia`;
   }
