@@ -1,9 +1,10 @@
 (function () {
   "use strict";
 
-  // A half-hour walk at an easy 4.8 km/h. If that turns up very little, widen the net
-  // to Wikipedia's 10 km maximum and keep just the nearest few.
-  const WALK_RADIUS = 2400;
+  // Walks at an easy 4.8 km/h: 20 minutes, 40 minutes or 2 hours. If that turns up very
+  // little, widen the net to Wikipedia's 10 km maximum and keep just the nearest few.
+  const WALKS = [["short", "short", 1600], ["medium", "medium", 3200], ["long", "long", 9600]];
+  const WALK_RADIUS = Object.fromEntries(WALKS.map(([key, , r]) => [key, r]));
   const WIDE_RADIUS = 10000;
   const MIN_RESULTS = 25;
   const MAX_RESULTS = 500;            // the most geosearch will return in one go
@@ -22,6 +23,10 @@
   try { if (LANG_NAME[localStorage.getItem("walkipedia-lang")]) lang = localStorage.getItem("walkipedia-lang"); } catch (_) {}
   const urlLang = new URL(location.href).searchParams.get("lang");
   if (LANG_NAME[urlLang]) lang = urlLang;
+
+  let walk = "short";
+  const urlWalk = new URL(location.href).searchParams.get("walk");
+  if (WALK_RADIUS[urlWalk]) walk = urlWalk;
 
   const wikiHost = () => `https://${lang}.wikipedia.org`;
   const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
@@ -63,8 +68,13 @@
     return mins > 60 ? dist : `${mins} min walk · ${dist}`;
   };
 
-  async function getJSON(url) {
+  // A busy or rate-limited service often answers on a second try, so retry once after a pause.
+  async function getJSON(url, retry = true) {
     const res = await fetch(url);
+    if (retry && (res.status === 429 || res.status >= 500)) {
+      await new Promise(r => setTimeout(r, 1500));
+      return getJSON(url, false);
+    }
     if (!res.ok) throw new Error(`${res.status} from ${new URL(url).host}`);
     return res.json();
   }
@@ -116,7 +126,7 @@
   const state = {
     run: 0,                  // bumps on every search, so late replies from an old one are ignored
     centre: null,
-    radius: WALK_RADIUS,
+    radius: WALK_RADIUS[walk],
     articles: [],
     kind: "all",
     q: "",
@@ -155,10 +165,19 @@
           const where = r.admin_ward || (r.admin_district && [].concat(r.admin_district)[0]);
           return [{ lat: r.latitude, lon: r.longitude, label: (r.postcode || r.outcode || q.toUpperCase()), detail: where, importance: 1 }];
         }
-      } catch (_) { /* not a real postcode: let Nominatim have a go */ }
+      } catch (_) { /* not a real postcode, or postcodes.io is down: let Nominatim have a go */ }
     }
-    // Nominatim ranks towns and landmarks far better than Photon (which sent
-    // "Tongue, Sutherland" to Sydney). One request per search keeps within its usage policy.
+    try {
+      return await nominatim(q);
+    } catch (e) {
+      console.error(e);
+      return photon(q);
+    }
+  }
+
+  // Nominatim ranks towns and landmarks far better than Photon (which sent
+  // "Tongue, Sutherland" to Sydney). One request per search keeps within its usage policy.
+  async function nominatim(q) {
     const results = await getJSON(`https://nominatim.openstreetmap.org/search?${new URLSearchParams({
       q, format: "jsonv2", limit: "8", "accept-language": "en",
     })}`);
@@ -181,6 +200,22 @@
     return places;
   }
 
+  // Photon is the backup for when Nominatim is busy or blocking us. It gives no importance
+  // score, so its order stands and the first match is taken without asking.
+  async function photon(q) {
+    const d = await getJSON(`https://photon.komoot.io/api/?${new URLSearchParams({ q, limit: "8", lang: "en" })}`);
+    return (d.features || []).map((f, i) => {
+      const p = f.properties;
+      const label = p.name || p.street || p.postcode || q;
+      return {
+        lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], label,
+        detail: [...new Set([p.city || p.county, p.state, p.country].filter(x => x && x !== label))].join(", "),
+        type: String(p.type || p.osm_value || "").replace(/_/g, " "),
+        importance: 1 - i * 0.2,
+      };
+    });
+  }
+
   // Close enough in prominence that we shouldn't just guess. At 0.85, Glasgow and Bath go
   // straight to the UK ones; Springfield, Newport and Whitby ask.
   const isAmbiguous = places => places.length > 1 && places[1].importance >= places[0].importance * 0.85;
@@ -192,7 +227,13 @@
       })}`);
       const a = r.address || {};
       return a.suburb || a.neighbourhood || a.village || a.town || a.city || r.name || null;
-    } catch (_) { return null; }
+    } catch (_) {
+      try {
+        const d = await getJSON(`https://photon.komoot.io/reverse?${new URLSearchParams({ lat, lon, lang: "en" })}`);
+        const p = d.features?.[0]?.properties || {};
+        return p.district || p.locality || p.city || p.name || null;
+      } catch (_) { return null; }
+    }
   }
 
   // ---------- fetching articles ----------
@@ -202,8 +243,8 @@
   }).then(d => d.query?.geosearch || []);
 
   async function findNearby(lat, lon) {
-    let found = await geosearch(lat, lon, WALK_RADIUS);
-    let radius = WALK_RADIUS;
+    let radius = WALK_RADIUS[walk];
+    let found = await geosearch(lat, lon, radius);
     if (found.length < MIN_RESULTS) {
       found = (await geosearch(lat, lon, WIDE_RADIUS)).slice(0, MIN_RESULTS);
       radius = found.length ? found[found.length - 1].dist : WIDE_RADIUS;
@@ -320,10 +361,10 @@
 
   function setTitle(label, detail, radius, n) {
     const where = label === "you" ? "you" : label;
-    const wide = radius > WALK_RADIUS || n < MIN_RESULTS;
-    $("#results-title").textContent = !n ? `Nothing near ${where}`
-      : wide ? `The ${n} nearest to ${where}`
-      : `Within a half-hour walk of ${where}`;
+    const wide = radius > WALK_RADIUS[walk] || n < MIN_RESULTS;
+    $("#results-title").innerHTML = !n ? `Nothing near ${esc(where)}`
+      : wide ? `The ${n} nearest to ${esc(where)}`
+      : `Within a ${walkSelect()} walk of ${esc(where)}`;
     $("#results-title").title = detail || "";
     state.titleNote = !n ? ""
       : wide
@@ -655,7 +696,7 @@
   const searchHere = $("#search-here");
   map.on("moveend", () => {
     if (!loader.hidden) return;
-    const moved = !state.centre || map.getCenter().distanceTo(state.centre) >= Math.min(state.radius, WALK_RADIUS) / 2;
+    const moved = !state.centre || map.getCenter().distanceTo(state.centre) >= Math.min(state.radius, WALK_RADIUS[walk]) / 2;
     searchHere.hidden = map.getZoom() < SEARCH_HERE_ZOOM || !moved;
   });
   searchHere.addEventListener("click", async () => {
@@ -714,6 +755,21 @@
     history.replaceState(null, "", url);
     extracts.clear();         // page ids belong to one wiki, so nothing carries over
     applyLang();
+    if (state.last) search(state.last);
+  });
+
+  // ---------- walk length ----------
+  // One dropdown in the intro heading and another in the results heading, kept in step.
+  const walkSelect = () => `<select class="lang-select walk-select" aria-label="How long a walk">${
+    WALKS.map(([key, name]) => `<option value="${key}"${key === walk ? " selected" : ""}>${name}</option>`).join("")}</select>`;
+  $("#walk-intro").outerHTML = walkSelect();
+  document.addEventListener("change", e => {
+    if (!e.target.classList.contains("walk-select")) return;
+    walk = e.target.value;
+    document.querySelectorAll(".walk-select").forEach(s => (s.value = walk));
+    const url = new URL(location.href);
+    if (walk === "short") url.searchParams.delete("walk"); else url.searchParams.set("walk", walk);
+    history.replaceState(null, "", url);
     if (state.last) search(state.last);
   });
 

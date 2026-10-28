@@ -1,6 +1,6 @@
 # Walkipedia
 
-Every Wikipedia article within half an hour on foot, pinned on a map. Search for a place or share your location.
+Every Wikipedia article within a short walk, pinned on a map. Search for a place or share your location.
 
 Live at [neil-scott.com/walkipedia](https://www.neil-scott.com/walkipedia/).
 
@@ -19,7 +19,7 @@ After editing `css/style.css`, `js/app.js` or the SVGs, run `./bust-cache.sh` to
 ## How it works
 
 - Articles come from the Wikipedia geosearch API, in any of 16 language editions, with types guessed from Wikidata short descriptions.
-- Places are searched with [Nominatim](https://nominatim.org/) and [postcodes.io](https://postcodes.io/).
+- Places are searched with [Nominatim](https://nominatim.org/) and [postcodes.io](https://postcodes.io/), with [Photon](https://photon.komoot.io/) as a backup.
 - The map uses [Leaflet](https://leafletjs.com/) and [MapLibre](https://maplibre.org/), with tiles from [OpenFreeMap](https://openfreemap.org/) and [OpenStreetMap](https://www.openstreetmap.org/copyright).
 
 If you deploy your own copy, follow the usage policies of these services, particularly [Nominatim's](https://operations.osmfoundation.org/policies/nominatim/).

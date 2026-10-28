@@ -1,7 +1,7 @@
 {
   "name": "Walkipedia",
   "short_name": "Walkipedia",
-  "description": "Every Wikipedia article within half an hour on foot, pinned on a map.",
+  "description": "Every Wikipedia article within a short walk, pinned on a map.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
