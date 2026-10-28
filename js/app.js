@@ -861,24 +861,14 @@
     return { order: best, length: bestLength };
   }
 
-  // One link per leg of up to STOPS_PER_LINK stops, each leg starting where the last one ended.
-  // A walk from where you are, or a single stop, leaves the start out of the first link, so Google
-  // Maps starts from your phone's location. Only a walk that finishes back there puts where you
-  // are in a link, as its destination, since Google Maps can't fill that in itself.
-  function mapsLinks(stops, fromHere) {
+  // One link per leg of up to STOPS_PER_LINK points, each leg starting where the last one ended.
+  // A single stop gets directions from wherever Google Maps thinks you are.
+  function mapsLinks(stops) {
     const at = s => `${s.lat},${s.lon}`;
     const link = params => `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", travelmode: "walking", ...params })}`;
+    if (stops.length === 1) return [{ first: 1, last: 1, url: link({ destination: at(stops[0]) }) }];
     const legs = [];
-    let i = 0;
-    if (fromHere || stops.length === 1) {
-      const leg = stops.slice(0, STOPS_PER_LINK - 1);
-      legs.push({
-        first: 1, last: leg.length,
-        url: link({ destination: at(leg[leg.length - 1]), ...(leg.length > 1 && { waypoints: leg.slice(0, -1).map(at).join("|") }) }),
-      });
-      i = leg.length - 1;
-    }
-    for (; i < stops.length - 1; i += STOPS_PER_LINK - 1) {
+    for (let i = 0; i < stops.length - 1; i += STOPS_PER_LINK - 1) {
       const leg = stops.slice(i, i + STOPS_PER_LINK);
       legs.push({
         first: i + 1, last: i + leg.length,
@@ -910,8 +900,10 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
     let { order, length } = walkOrder(saved, tourHere);
     tourStops = order;
     const loop = tourLoop && order.length > (tourHere ? 0 : 1);
-    // Back to where you are (rounded to about 10 m: plenty to walk back to), or to the first stop.
-    const home = loop && (tourHere ? { lat: +tourHere.lat.toFixed(4), lon: +tourHere.lon.toFixed(4) } : order[0]);
+    // Where you are goes in the Google Maps links (and nowhere else), since on a computer Google's
+    // own guess can be hundreds of metres out. Rounded to about 10 m: plenty to walk from.
+    const start = tourHere && { lat: +tourHere.lat.toFixed(4), lon: +tourHere.lon.toFixed(4) };
+    const home = loop && (start || order[0]);
     if (loop) length += L.latLng(order[order.length - 1]).distanceTo(home);
     tourLayer.clearLayers();
     if (order.length) {
@@ -927,10 +919,11 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
       }).addTo(tourLayer));
       if (fit) map.fitBounds(L.latLngBounds(path), { padding: [50, 50], maxZoom: 17 });
     }
-    const links = mapsLinks(loop ? [...order, home] : order, !!tourHere);
+    const links = mapsLinks([...(start ? [start] : []), ...order, ...(loop ? [home] : [])]);
     const legText = l => {
-      const last = Math.min(l.last, order.length);
-      return `${l.first === last ? `Stop ${last}` : `Stops ${l.first}–${last}`}${l.last > order.length ? " and back" : ""} in Google Maps`;
+      const skip = start ? 1 : 0;
+      const first = Math.max(1, l.first - skip), last = Math.min(l.last - skip, order.length);
+      return `${first === last ? `Stop ${last}` : `Stops ${first}–${last}`}${l.last - skip > order.length ? " and back" : ""} in Google Maps`;
     };
     tourEl.innerHTML = `
       <h2>Your walk</h2>
