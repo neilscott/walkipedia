@@ -779,6 +779,7 @@
     const url = new URL(location.href);
     if (walk === "short") url.searchParams.delete("walk"); else url.searchParams.set("walk", walk);
     history.replaceState(null, "", url);
+    renderTries();
     if (state.last) search(state.last);
   });
 
@@ -954,6 +955,32 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
     const img = e.target;
     if (img instanceof HTMLImageElement && (img.classList.contains("thumb") || img.closest(".popup"))) img.remove();
   }, true);
+
+  // ---------- suggestions ----------
+  // Two places in the UK, one further afield and a postcode, picked afresh each visit. All match
+  // clearly enough not to ask which one you meant. They search in place, keeping the walk length.
+  const SUGGESTIONS = [
+    ["Glasgow", "Bath", "Oxford", "Belfast", "Cardiff", "St Andrews", "Brighton", "Tower of London", "Lindisfarne"],
+    ["Kyoto", "Lisbon", "Venice", "Reykjavik", "Valletta", "Barcelona", "Prague", "Hobart", "Quebec City"],
+    ["EH1 1YZ", "SW1A 1AA"],
+  ];
+  const pickFrom = (list, n) => [...list].sort(() => Math.random() - .5).slice(0, n);
+  const tries = [...pickFrom(SUGGESTIONS[0], 2), ...pickFrom(SUGGESTIONS[1], 1), ...pickFrom(SUGGESTIONS[2], 1)];
+  function renderTries() {
+    const links = tries.map(q => {
+      const url = new URL(location.href);
+      url.searchParams.set("q", q);
+      return `<a href="${esc(url.search)}" data-q="${esc(q)}">${esc(q)}</a>`;
+    });
+    $(".try").innerHTML = `Try ${links.slice(0, -1).join(", ")} or ${links[links.length - 1]}.`;
+  }
+  renderTries();
+  $(".try").addEventListener("click", e => {
+    const a = e.target.closest("a");
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    searchFor(a.dataset.q);
+  });
 
   // ---------- start ----------
   const initial = new URL(location.href).searchParams.get("q");
