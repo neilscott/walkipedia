@@ -13,6 +13,7 @@
   --link-visited: #6b4ba1;
   --accent: #36c;
   --focus: #36c;
+  --saved: #e8a400;
 
   --font-serif: "Linux Libertine", "Georgia", "Times", serif;
   --font-display: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
@@ -165,6 +166,10 @@ a:hover { text-decoration: underline; }
   border-radius: 999px;
 }
 
+.btn-walk { top: auto; bottom: 24px; }
+.btn-walk svg { fill: var(--saved); }
+.walk-n { font-size: .8rem; color: var(--ink-soft); }
+
 /* ---------- list panel ---------- */
 .list-panel { min-width: 0; padding: 0 clamp(16px, 2.4vw, 28px) 28px; }
 
@@ -222,7 +227,7 @@ a:hover { text-decoration: underline; }
 
 /* ---------- which place did you mean? ---------- */
 .choices { padding: 20px 0 8px; }
-.choices h2 {
+.choices h2, .tour h2 {
   margin: 0 0 12px; padding-bottom: 4px;
   font-size: 1.6rem; line-height: 1.2;
   border-bottom: 1px solid var(--rule);
@@ -249,6 +254,15 @@ a:hover { text-decoration: underline; }
 }
 .choice-pin { width: 28px; height: 28px; border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.35); cursor: pointer; }
 
+/* ---------- your walk ---------- */
+.tour { padding: 20px 0 8px; }
+.tour-list { list-style: none; margin: 12px 0 16px; padding: 0; }
+.tour-list li { display: flex; align-items: center; gap: 12px; padding: 8px; border-bottom: 1px solid var(--rule-soft); }
+.tour-list a { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.tour-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tour .small { margin: 12px 0 0; font-size: .85rem; color: var(--ink-soft); }
+.tour-foot { margin: 16px 0 0; }
+
 .also { margin: 6px 0 0; font-size: .85rem; color: var(--ink-soft); }
 .link-button {
   font: inherit; color: var(--link);
@@ -262,7 +276,7 @@ a:hover { text-decoration: underline; }
 .article-list { list-style: none; margin: 0; padding: 0; }
 .article {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr) auto;
   gap: 12px;
   padding: 12px 8px 12px 10px;
   border-bottom: 1px solid var(--rule-soft);
@@ -291,6 +305,16 @@ a:hover { text-decoration: underline; }
 .article h3 a { color: var(--link); }
 .article .desc { margin: 2px 0 0; font-size: .86rem; color: var(--ink-soft); }
 .article .walk { margin: 4px 0 0; font-size: .78rem; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+.save {
+  align-self: start; display: flex;
+  margin: -4px -4px 0 0; padding: 4px;
+  background: none; border: 0; border-radius: 2px;
+  color: #a2a9b1; cursor: pointer;
+}
+.save:hover { color: var(--ink-soft); }
+.save[aria-pressed="true"] { color: var(--saved); }
+.save svg, .btn-save svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+.save[aria-pressed="true"] svg, .btn-save[aria-pressed="true"] svg { fill: var(--saved); stroke: var(--saved); }
 .kind-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--kind); flex: none; }
 
 .empty { padding: 24px 4px; color: var(--ink-soft); }
@@ -307,12 +331,12 @@ a:hover { text-decoration: underline; }
 }
 .notice.is-error { background: #fee7e6; border-color: #f4b9b4; border-left-color: #bf3c2c; }
 .status { flex: 1; margin: 0; font-size: .9rem; color: var(--ink); }
-.notice-close {
+.notice-close, .tour-remove {
   flex: none;
   font: 1.25rem/1 var(--font-sans); color: var(--ink-soft);
   background: none; border: 0; padding: 0 4px; cursor: pointer;
 }
-.notice-close:hover { color: var(--ink); }
+.notice-close:hover, .tour-remove:hover { color: var(--ink); }
 
 /* ---------- map markers ---------- */
 .wiki-marker {
@@ -322,6 +346,7 @@ a:hover { text-decoration: underline; }
   box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 2px 5px rgba(0,0,0,.3);
   transition: transform .15s ease;
 }
+.wiki-marker.is-saved { box-shadow: 0 0 0 2.5px var(--saved), 0 2px 5px rgba(0,0,0,.3); }
 .wiki-marker.is-active { transform: scale(1.5); box-shadow: 0 0 0 2px var(--ink), 0 2px 6px rgba(0,0,0,.4); }
 
 .wiki-cluster {
@@ -357,6 +382,7 @@ a:hover { text-decoration: underline; }
 .popup .popup-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: .82rem; border-top: 1px solid var(--rule-soft); padding-top: 8px; }
 .popup .walk { color: var(--ink-soft); }
 .popup a { font-weight: 600; }
+.popup .btn-save { width: 100%; justify-content: center; margin: 0 0 10px; padding: 6px 10px; font-size: .86rem; }
 
 /* ---------- footer ---------- */
 .footer { padding: 16px clamp(16px, 3vw, 32px) 28px; font-size: .8rem; color: var(--ink-soft); max-width: 110ch; }

@@ -28,7 +28,7 @@
   const urlWalk = new URL(location.href).searchParams.get("walk");
   if (WALK_RADIUS[urlWalk]) walk = urlWalk;
 
-  const wikiHost = () => `https://${lang}.wikipedia.org`;
+  const wikiHost = (l = lang) => `https://${l}.wikipedia.org`;
   const WIKIDATA_API = "https://www.wikidata.org/w/api.php";
 
   // Each article's kind is guessed from its Wikidata short description (e.g. "railway station
@@ -61,7 +61,7 @@
 
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const wikiUrl = title => `${wikiHost()}/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`;
+  const wikiUrl = (title, l) => `${wikiHost(l)}/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`;
   const walkText = d => {
     const mins = Math.max(1, Math.round(d / METRES_PER_MINUTE));
     const dist = d < 1000 ? `${Math.round(d / 10) * 10} m` : `${(d / 1000).toFixed(1)} km`;
@@ -135,6 +135,11 @@
   };
   const markers = new Map();
   const extracts = new Map();
+
+  // Articles saved for a walk stay in this browser. Page ids belong to one wiki, so each keeps its language.
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem("walkipedia-saved")) || []; } catch (_) {}
+  const isSaved = a => saved.some(s => s.lang === lang && s.id === a.id);
 
   const loader = $("#map-loader");
   const notice = $("#notice");
@@ -307,6 +312,7 @@
   // ---------- searching ----------
   async function search({ lat, lon, label, detail, shareQuery }) {
     const run = ++state.run;
+    closeTour();
     state.centre = L.latLng(lat, lon);
     state.last = { lat, lon, label, detail };
     $("#search-here").hidden = true;
@@ -380,7 +386,7 @@
 
   // ---------- markers ----------
   const markerIcon = a => L.divIcon({
-    html: `<div class="wiki-marker" style="--kind:${a.kind.color}" data-id="${a.id}"></div>`,
+    html: `<div class="wiki-marker${isSaved(a) ? " is-saved" : ""}" style="--kind:${a.kind.color}" data-id="${a.id}"></div>`,
     className: "", iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -10],
   });
 
@@ -406,6 +412,7 @@
         <h3>${esc(a.title)}</h3>
         ${a.description ? `<p class="desc">${esc(a.description)}</p>` : ""}
         <p class="extract${extracts.has(a.id) ? "" : " is-loading"}">${extracts.has(a.id) ? esc(extracts.get(a.id)) : "Loading summary…"}</p>
+        <button type="button" class="btn btn-save" data-save="${a.id}" aria-pressed="${isSaved(a)}">${STAR}<span class="save-text">${saveText(isSaved(a))}</span></button>
         <div class="popup-foot">
           <span class="walk">${esc(walkText(a.dist))}</span>
           <a href="${wikiUrl(a.title)}" target="_blank" rel="noopener">Read on Wikipedia →</a>
@@ -488,6 +495,7 @@
           ${a.description ? `<p class="desc">${esc(a.description)}</p>` : ""}
           <p class="walk"><span class="kind-dot"></span>${esc(walkText(a.dist))}</p>
         </div>
+        <button type="button" class="save" data-save="${a.id}" aria-pressed="${isSaved(a)}" title="Add to your walk">${STAR}<span class="visually-hidden">Add to your walk</span></button>
       </li>`).join("") || `<li class="empty">${all.length ? "Nothing here matches." : NOTHING_NEARBY}</li>`;
 
     const n = visible.length;
@@ -525,7 +533,7 @@
   }
 
   listEl.addEventListener("click", e => {
-    if (e.target.closest("a")) return;
+    if (e.target.closest("a, button")) return;
     const row = e.target.closest(".article");
     if (row) showOnMap(row.dataset.id);
   });
@@ -568,6 +576,7 @@
 
   function showChoices(q, places) {
     choices = places;
+    closeTour();
     $("#intro").hidden = true;
     $("#results").hidden = true;
     choicesEl.hidden = false;
@@ -697,7 +706,7 @@
   map.on("moveend", () => {
     if (!loader.hidden) return;
     const moved = !state.centre || map.getCenter().distanceTo(state.centre) >= Math.min(state.radius, WALK_RADIUS[walk]) / 2;
-    searchHere.hidden = map.getZoom() < SEARCH_HERE_ZOOM || !moved;
+    searchHere.hidden = map.getZoom() < SEARCH_HERE_ZOOM || !moved || !tourEl.hidden;
   });
   searchHere.addEventListener("click", async () => {
     const c = map.getCenter();
@@ -771,6 +780,173 @@
     if (walk === "short") url.searchParams.delete("walk"); else url.searchParams.set("walk", walk);
     history.replaceState(null, "", url);
     if (state.last) search(state.last);
+  });
+
+  // ---------- your walk ----------
+  const STAR = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2.8l2.8 5.7 6.3.9-4.6 4.4 1.1 6.2L12 17l-5.6 3 1.1-6.2-4.6-4.4 6.3-.9z"/></svg>';
+  const saveText = on => on ? "In your walk" : "Add to your walk";
+  // A Google Maps directions link takes a start, nine stops in between and an end. (A phone's
+  // browser takes only three in between; the app takes the lot.)
+  const STOPS_PER_LINK = 11;
+  const walkBtn = $("#walk-btn");
+  const tourEl = $("#tour");
+  const tourLayer = L.layerGroup().addTo(map);
+  let tourStops = [];
+  let tourFrom = null;    // the view and panels to go back to
+
+  const storeSaved = () => { try { localStorage.setItem("walkipedia-saved", JSON.stringify(saved)); } catch (_) {} };
+  const updateWalkBtn = () => {
+    walkBtn.hidden = !saved.length || !tourEl.hidden;
+    $("#walk-n").textContent = saved.length;
+  };
+  updateWalkBtn();
+
+  function toggleSaved(a) {
+    const i = saved.findIndex(s => s.lang === lang && s.id === a.id);
+    if (i >= 0) saved.splice(i, 1);
+    else saved.push({ lang, id: a.id, title: a.title, lat: a.lat, lon: a.lon });
+    storeSaved();
+    updateWalkBtn();
+    markers.get(a.id)?.setIcon(markerIcon(a));
+    if (state.activeId) setActive(state.activeId);
+    document.querySelectorAll(`[data-save="${a.id}"]`).forEach(b => {
+      b.setAttribute("aria-pressed", String(isSaved(a)));
+      const t = b.querySelector(".save-text");
+      if (t) t.textContent = saveText(isSaved(a));
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-save]");
+    const a = btn && state.articles.find(x => x.id === btn.dataset.save);
+    if (a) toggleSaved(a);
+  });
+
+  // Go to the nearest stop next, trying each stop as the first and keeping the shortest walk.
+  function walkOrder(stops) {
+    let best = stops, bestLength = 0;
+    stops.forEach((first, n) => {
+      const order = [first], left = stops.filter(s => s !== first);
+      let length = 0;
+      while (left.length) {
+        const here = L.latLng(order[order.length - 1]);
+        let i = 0;
+        left.forEach((s, j) => { if (here.distanceTo(s) < here.distanceTo(left[i])) i = j; });
+        length += here.distanceTo(left[i]);
+        order.push(...left.splice(i, 1));
+      }
+      if (!n || length < bestLength) { best = order; bestLength = length; }
+    });
+    return { order: best, length: bestLength };
+  }
+
+  // One link per leg of up to STOPS_PER_LINK stops, each leg starting where the last one ended.
+  // A single stop gets directions from wherever you are.
+  function mapsLinks(stops) {
+    const at = s => `${s.lat},${s.lon}`;
+    const link = params => `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", travelmode: "walking", ...params })}`;
+    if (stops.length === 1) return [{ first: 1, last: 1, url: link({ destination: at(stops[0]) }) }];
+    const legs = [];
+    for (let i = 0; i < stops.length - 1; i += STOPS_PER_LINK - 1) {
+      const leg = stops.slice(i, i + STOPS_PER_LINK);
+      legs.push({
+        first: i + 1, last: i + leg.length,
+        url: link({ origin: at(leg[0]), destination: at(leg[leg.length - 1]), ...(leg.length > 2 && { waypoints: leg.slice(1, -1).map(at).join("|") }) }),
+      });
+    }
+    return legs;
+  }
+
+  function downloadGpx(stops) {
+    const pt = (tag, s) => `<${tag} lat="${s.lat}" lon="${s.lon}"><name>${esc(s.title)}</name><link href="${esc(wikiUrl(s.title, s.lang))}"/></${tag}>`;
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Walkipedia" xmlns="http://www.topografix.com/GPX/1/1">
+${stops.map(s => `  ${pt("wpt", s)}`).join("\n")}
+  <rte>
+    <name>Walkipedia walk</name>
+${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
+  </rte>
+</gpx>
+`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([gpx], { type: "application/gpx+xml" }));
+    a.download = "walkipedia-walk.gpx";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function renderTour(fit) {
+    const { order, length } = walkOrder(saved);
+    tourStops = order;
+    tourLayer.clearLayers();
+    if (order.length) {
+      L.polyline(order.map(s => [s.lat, s.lon]), { color: "#36c", weight: 3, dashArray: "6 8", interactive: false }).addTo(tourLayer);
+      order.forEach((s, i) => L.marker([s.lat, s.lon], {
+        icon: L.divIcon({ html: `<div class="choice-pin">${i + 1}</div>`, className: "", iconSize: [28, 28] }),
+        title: s.title,
+      }).addTo(tourLayer));
+      if (fit) map.fitBounds(L.latLngBounds(order.map(s => [s.lat, s.lon])), { padding: [50, 50], maxZoom: 17 });
+    }
+    const links = mapsLinks(order);
+    tourEl.innerHTML = `
+      <h2>Your walk</h2>
+      ${order.length ? `
+        <p class="result-count">${order.length} stop${order.length === 1 ? "" : "s"}${order.length > 1 ? ` · about ${walkText(length).split(" · ").pop()} as the crow flies` : ""}</p>
+        <ol class="tour-list">${order.map((s, i) => `
+          <li>
+            <span class="choice-n" aria-hidden="true">${i + 1}</span>
+            <a href="${wikiUrl(s.title, s.lang)}" target="_blank" rel="noopener">${esc(s.title)}</a>
+            <button type="button" class="tour-remove" data-unsave="${i}" aria-label="Remove ${esc(s.title)}">×</button>
+          </li>`).join("")}
+        </ol>
+        <div class="tour-actions">
+          ${links.map(l => `<a class="btn btn-primary" href="${esc(l.url)}" target="_blank" rel="noopener">${
+            links.length > 1 ? `Stops ${l.first}–${l.last} in Google Maps` : "Open in Google Maps"}</a>`).join("")}
+          <button type="button" class="btn" data-gpx>Download GPX</button>
+        </div>
+        <p class="small">Google Maps takes up to ${STOPS_PER_LINK} stops per link (or 5 in a phone’s browser without the Google Maps app), so longer walks come in parts.
+          The GPX file has the whole walk, for apps like Komoot, OsmAnd or Organic Maps.</p>`
+      : `<p class="empty">Nothing in your walk yet. Tap the star on any article to add it.</p>`}
+      <p class="tour-foot"><button type="button" class="link-button" data-back>← Back</button></p>`;
+  }
+
+  function openTour() {
+    tourFrom = { centre: map.getCenter(), zoom: map.getZoom(), panels: ["#intro", "#results", "#choices"].map($).filter(el => !el.hidden) };
+    tourFrom.panels.forEach(el => (el.hidden = true));
+    map.closePopup();
+    [cluster, overlay, choiceLayer].forEach(l => map.removeLayer(l));
+    tourEl.hidden = false;
+    searchHere.hidden = true;
+    updateWalkBtn();
+    renderTour(true);
+    if (window.matchMedia("(max-width: 900px)").matches) $(".map-panel").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function closeTour() {
+    if (tourEl.hidden) return;
+    tourEl.hidden = true;
+    tourLayer.clearLayers();
+    [cluster, overlay, choiceLayer].forEach(l => l.addTo(map));
+    tourFrom.panels.forEach(el => (el.hidden = false));
+    map.setView(tourFrom.centre, tourFrom.zoom);
+    updateWalkBtn();
+  }
+
+  walkBtn.addEventListener("click", openTour);
+  tourEl.addEventListener("click", e => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if ("back" in btn.dataset) closeTour();
+    else if ("gpx" in btn.dataset) downloadGpx(tourStops);
+    else if ("unsave" in btn.dataset) {
+      const s = tourStops[Number(btn.dataset.unsave)];
+      saved = saved.filter(x => x !== s);
+      storeSaved();
+      const a = s.lang === lang && state.articles.find(x => x.id === s.id);
+      if (a) markers.get(a.id).setIcon(markerIcon(a));
+      refresh();
+      renderTour(false);
+    }
   });
 
   // ---------- image fallback ----------
