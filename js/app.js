@@ -263,14 +263,27 @@
     gslimit: String(MAX_RESULTS), gsnamespace: "0", gsprimary: "primary",
   }).then(d => d.query?.geosearch || []);
 
+  // Where the nearest MAX_RESULTS stop short of the edge of the walk (in central London they run
+  // out at about 600 m), ask Wikipedia's search instead. It ranks articles by how well known they
+  // are, so the best-known places across the whole walk come back.
+  const bestKnown = (lat, lon, radius) => wiki({
+    action: "query", generator: "search", gsrsearch: `nearcoord:${Math.round(radius)}m,${lat},${lon}`,
+    gsrnamespace: "0", gsrlimit: String(MAX_RESULTS),
+    prop: "coordinates", coprimary: "primary", colimit: "max", codistancefrompoint: `${lat}|${lon}`,
+  }).then(d => (d.query?.pages || []).filter(p => p.coordinates).map(p => ({ pageid: p.pageid, title: p.title, ...p.coordinates[0] })));
+
   async function findNearby(lat, lon) {
     let radius = WALK_RADIUS[walk];
     let found = await geosearch(lat, lon, radius);
+    let busy = false;
     if (found.length < MIN_RESULTS) {
       found = (await geosearch(lat, lon, WIDE_RADIUS)).slice(0, MIN_RESULTS);
       radius = found.length ? found[found.length - 1].dist : WIDE_RADIUS;
+    } else if (found.length >= MAX_RESULTS) {
+      const known = await bestKnown(lat, lon, radius).catch(e => { console.error(e); return []; });
+      if (known.length >= MIN_RESULTS) { found = known; busy = true; }
     }
-    return { radius, articles: found.map(g => ({ id: String(g.pageid), title: g.title, lat: g.lat, lon: g.lon, dist: g.dist })) };
+    return { radius, busy, articles: found.map(g => ({ id: String(g.pageid), title: g.title, lat: g.lat, lon: g.lon, dist: g.dist })) };
   }
 
   // Thumbnails and short descriptions, 50 at a time, filled in as they arrive.
@@ -346,7 +359,7 @@
     }
 
     try {
-      const { radius, articles } = await findNearby(lat, lon);
+      const { radius, busy, articles } = await findNearby(lat, lon);
       if (run !== state.run) return;
       articles.forEach(a => (a.kind = KIND.other));
       state.articles = articles;
@@ -368,7 +381,7 @@
       buildMarkers();
       $("#intro").hidden = true;
       $("#results").hidden = false;
-      setTitle(label, detail, radius, articles.length);
+      setTitle(label, detail, radius, articles.length, busy);
       refresh();
       setLoading(null);
 
@@ -381,7 +394,7 @@
     }
   }
 
-  function setTitle(label, detail, radius, n) {
+  function setTitle(label, detail, radius, n, busy) {
     const where = label === "you" ? "you" : label;
     const wide = radius > WALK_RADIUS[walk] || n < MIN_RESULTS;
     $("#results-title").innerHTML = !n ? `Nothing near ${esc(where)}`
@@ -391,6 +404,7 @@
     state.titleNote = !n ? ""
       : wide
       ? `The nearest reach out to ${walkText(radius).split(" · ").pop()}.`
+      : busy ? `There’s a lot round here, so these are the ${n} best known.`
       : n >= MAX_RESULTS ? `There’s a lot round here — showing the closest ${MAX_RESULTS}.` : "";
     document.title = `${where === "you" ? "Near you" : where} · Walkipedia`;
   }
