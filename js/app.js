@@ -841,11 +841,12 @@
     if (a) toggleSaved(a);
   });
 
-  // Go to the nearest stop next. Starting from where you are if that's known, otherwise trying
-  // each stop as the first and keeping the shortest walk.
+  // Go to the nearest stop next. Starting from where you are if that's known, or the stop you
+  // picked to start at, otherwise trying each stop as the first and keeping the shortest walk.
   function walkOrder(stops, from) {
     let best = stops, bestLength = 0;
-    (from ? [from] : stops).forEach((first, n) => {
+    const picked = stops.filter(s => s.first);
+    (from ? [from] : picked.length ? picked : stops).forEach((first, n) => {
       const order = from ? [] : [first], left = stops.filter(s => s !== first);
       let here = L.latLng(first), length = 0;
       while (left.length) {
@@ -908,13 +909,13 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
   function renderTour(fit) {
     let { order, length } = walkOrder(saved, tourHere);
     tourStops = order;
-    const loop = tourHere && tourLoop && order.length;
-    // rounded to about 10 m: plenty to walk back to
-    const home = loop && { lat: +tourHere.lat.toFixed(4), lon: +tourHere.lon.toFixed(4) };
+    const loop = tourLoop && order.length > (tourHere ? 0 : 1);
+    // Back to where you are (rounded to about 10 m: plenty to walk back to), or to the first stop.
+    const home = loop && (tourHere ? { lat: +tourHere.lat.toFixed(4), lon: +tourHere.lon.toFixed(4) } : order[0]);
     if (loop) length += L.latLng(order[order.length - 1]).distanceTo(home);
     tourLayer.clearLayers();
     if (order.length) {
-      const path = [...(tourHere ? [tourHere] : []), ...order, ...(loop ? [tourHere] : [])].map(s => [s.lat, s.lon]);
+      const path = [...(tourHere ? [tourHere] : []), ...order, ...(loop ? [home] : [])].map(s => [s.lat, s.lon]);
       L.polyline(path, { color: "#36c", weight: 3, dashArray: "6 8", interactive: false }).addTo(tourLayer);
       if (tourHere) L.marker([tourHere.lat, tourHere.lon], {
         icon: L.divIcon({ html: '<div class="you-marker"></div>', className: "", iconSize: [18, 18] }),
@@ -936,15 +937,18 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
       ${order.length ? `
         <p class="result-count">${order.length} stop${order.length === 1 ? "" : "s"}${order.length > 1 ? ` · about ${walkText(length).split(" · ").pop()} as the crow flies` : ""}</p>
         <label class="tour-here"><input type="checkbox" data-here${tourHere ? " checked" : ""}> Start from where I am</label>
-        ${tourHere ? `<label class="tour-here"><input type="checkbox" data-loop${tourLoop ? " checked" : ""}> Finish back here</label>` : ""}
+        ${tourHere || order.length > 1 ? `<label class="tour-here"><input type="checkbox" data-loop${tourLoop ? " checked" : ""}> ${
+          tourHere ? "Finish back here" : "Finish back at the first stop"}</label>` : ""}
         <ol class="tour-list">${tourHere ? `
           <li><span class="choice-n is-you" aria-hidden="true"></span>Where you are</li>` : ""}${order.map((s, i) => `
           <li>
             <span class="choice-n" aria-hidden="true">${i + 1}</span>
             <a href="${wikiUrl(s.title, s.lang)}" target="_blank" rel="noopener">${esc(s.title)}</a>
+            ${!tourHere && i ? `<button type="button" class="link-button tour-start" data-first="${i}">Start here</button>` : ""}
             <button type="button" class="tour-remove" data-unsave="${i}" aria-label="Remove ${esc(s.title)}">×</button>
           </li>`).join("")}${loop ? `
-          <li><span class="choice-n is-you" aria-hidden="true"></span>Back where you started</li>` : ""}
+          <li><span class="choice-n${tourHere ? " is-you" : ""}" aria-hidden="true">${tourHere ? "" : 1}</span>${
+            tourHere ? "Back where you started" : `Back to ${esc(order[0].title)}`}</li>` : ""}
         </ol>
         <div class="tour-actions">
           ${links.map(l => `<a class="btn btn-primary" href="${esc(l.url)}" target="_blank" rel="noopener">${
@@ -1004,6 +1008,12 @@ ${stops.map(s => `    ${pt("rtept", s)}`).join("\n")}
     if (!btn) return;
     if ("back" in btn.dataset) closeTour();
     else if ("gpx" in btn.dataset) downloadGpx(tourStops);
+    else if ("first" in btn.dataset) {
+      saved.forEach(s => delete s.first);
+      tourStops[Number(btn.dataset.first)].first = true;
+      storeSaved();
+      renderTour(false);
+    }
     else if ("unsave" in btn.dataset) {
       const s = tourStops[Number(btn.dataset.unsave)];
       saved = saved.filter(x => x !== s);

@@ -52,7 +52,7 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 800; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 /* links in running text need more than colour to stand out */
-p a { text-decoration: underline; text-underline-offset: 2px; }
+p a, .newsletter label a { text-decoration: underline; text-underline-offset: 2px; }
 
 .visually-hidden {
   position: absolute !important; width: 1px; height: 1px; overflow: hidden;
@@ -264,6 +264,7 @@ p a { text-decoration: underline; text-underline-offset: 2px; }
 .tour-here { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .9rem; cursor: pointer; }
 .tour-here input { margin: 0; accent-color: var(--accent); }
 .choice-n.is-you { width: 18px; height: 18px; margin: 0 4px; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.tour-start { flex: none; font-size: .82rem; }
 .tour-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .tour .small { margin: 12px 0 0; font-size: .85rem; color: var(--ink-soft); }
 .tour-foot { margin: 16px 0 0; }
