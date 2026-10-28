@@ -87,16 +87,32 @@
   // OpenFreeMap's vector styles are drawn from OSM data but calmer than the standard OSM
   // tiles, and stay sharp at any zoom or screen density. No API key needed (CARTO now wants one).
   // MapLibre draws them inside Leaflet, so clusters and popups work as before.
-  // The classic OSM raster tiles are the fallback without WebGL.
+  // The classic OSM raster tiles are the fallback without WebGL. MapLibre is the slowest thing
+  // on the page to load and start, so it's fetched once the page has painted.
   const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   const OFM = `<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> ${OSM}`;
   const hasWebGL = (() => {
     try { return !!document.createElement("canvas").getContext("webgl"); } catch (_) { return false; }
   })();
-  (hasWebGL && L.maplibreGL
-    ? L.maplibreGL({ style: "https://tiles.openfreemap.org/styles/liberty", attribution: OFM })
-    : L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: OSM, className: "osm-classic" })
-  ).addTo(map);
+  const osmClassic = () => L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: OSM, className: "osm-classic" }).addTo(map);
+  const loadScript = src => new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.append(s);
+  });
+  if (!hasWebGL) osmClassic();
+  else requestAnimationFrame(() => setTimeout(async () => {
+    try {
+      await loadScript("vendor/maplibre-gl-4.7.1.js");
+      await loadScript("vendor/leaflet-maplibre-gl-0.0.22.js");
+      L.maplibreGL({ style: "https://tiles.openfreemap.org/styles/liberty", attribution: OFM }).addTo(map);
+    } catch (e) {
+      console.error(e);
+      osmClassic();
+    }
+  }));
 
   // The masthead is sticky and its height changes as it wraps, so publish it for the CSS
   // that pins the map and list controls beneath it.
@@ -749,7 +765,7 @@
 
   // ---------- language ----------
   const langEl = $("#lang");
-  langEl.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code}">${esc(name)}</option>`).join("");
+  langEl.innerHTML = LANGUAGES.map(([code, name]) => `<option value="${code}" lang="${code === "simple" ? "en" : code}">${esc(name)}</option>`).join("");
   const applyLang = () => {
     langEl.value = lang;
     $("#wiki-credit").href = `${wikiHost()}/`;

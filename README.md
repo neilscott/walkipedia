@@ -28,6 +28,6 @@ Inspired by [Local Wikipedia](https://edjefferson.com/localwiki/) by Ed Jefferso
 
 ## Licence
 
-The code is [MIT](LICENSE). Article text belongs to Wikipedia contributors under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The Nunito font is under the [SIL Open Font License](fonts/OFL.txt).
+The code is [MIT](LICENSE). The map libraries in `vendor/` (Leaflet, Leaflet.markercluster, MapLibre GL JS and MapLibre GL Leaflet) are under their own licences, included alongside them. Article text belongs to Wikipedia contributors under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The Nunito font is under the [SIL Open Font License](fonts/OFL.txt).
 
 The Walkipedia name, wordmark and icons aren't covered by the MIT licence. If you deploy a fork, please use your own.
